@@ -1,3 +1,4 @@
+version: 2026.232.0520
 agentteams-controller:
     candy:
         version: 2026.223.1500
