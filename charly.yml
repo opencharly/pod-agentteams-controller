@@ -1,7 +1,5 @@
-version: 2026.232.0520
 agentteams-controller:
     candy:
-        version: 2026.223.1500
         description: |-
             The AgentTeams controller — a Go binary (with the `agt` REST client)
             that embeds a kine-backed kube-apiserver and reconciles Manager/Worker/
@@ -30,7 +28,7 @@ agentteams-controller:
             ~/.agentteams/matrix for the Matrix registration token) before
             exec'ing the controller.
         require:
-            - '@github.com/opencharly/layer-golang:v2026.235.2057'
+            - '@github.com/opencharly/layer-golang:v2026.239.1614'
         distro:
             arch:
                 package:
@@ -115,13 +113,13 @@ agentteams-controller:
               user: "1000"
               enable: true
               env:
-                  AGENTTEAMS_PROXY_SOCKET: /run/user/1000/podman/podman.sock
-                  AGENTTEAMS_MATRIX_URL: http://127.0.0.1:6167
-                  AGENTTEAMS_AI_GATEWAY_ADMIN_URL: http://127.0.0.1:8001
-                  AGENTTEAMS_FS_ENDPOINT: http://127.0.0.1:9000
-                  AGENTTEAMS_AI_GATEWAY_URL: http://127.0.0.1:8080
-                  AGENTTEAMS_KUBE_MODE: embedded
-                  AGENTTEAMS_AUTH_TOKEN_FILE: /var/run/agentteams/cli-token
+                AGENTTEAMS_PROXY_SOCKET: /run/user/1000/podman/podman.sock
+                AGENTTEAMS_MATRIX_URL: http://127.0.0.1:6167
+                AGENTTEAMS_AI_GATEWAY_ADMIN_URL: http://127.0.0.1:8001
+                AGENTTEAMS_FS_ENDPOINT: http://127.0.0.1:9000
+                AGENTTEAMS_AI_GATEWAY_URL: http://127.0.0.1:8080
+                AGENTTEAMS_KUBE_MODE: embedded
+                AGENTTEAMS_AUTH_TOKEN_FILE: /var/run/agentteams/cli-token
         plan:
             - run: download the pinned AgentTeams v1.2.2 source tarball
               download: "https://github.com/agentscope-ai/AgentTeams/archive/refs/tags/v1.2.2.tar.gz"
@@ -130,210 +128,210 @@ agentteams-controller:
               to: /opt/agentteams-src
             - run: build the controller and agt binaries from source
               command: |
-                  cd /opt/agentteams-src/agentteams-controller
-                  CGO_ENABLED=1 go build -o /usr/local/bin/agentteams-controller ./cmd/controller/
-                  CGO_ENABLED=0 go build -o /usr/local/bin/agt ./cmd/agt/
+                cd /opt/agentteams-src/agentteams-controller
+                CGO_ENABLED=1 go build -o /usr/local/bin/agentteams-controller ./cmd/controller/
+                CGO_ENABLED=0 go build -o /usr/local/bin/agt ./cmd/agt/
               cache:
-                  - /root/go/pkg/mod
-                  - /root/.cache/go-build
+                - /root/go/pkg/mod
+                - /root/.cache/go-build
             - run: download the pinned kube-apiserver binary
               download: "https://dl.k8s.io/release/v1.31.3/bin/linux/amd64/kube-apiserver"
               to: /usr/local/bin/kube-apiserver
               mode: "0755"
             - run: install the AgentTeams CRD manifests
               command: |
-                  mkdir -p /opt/agentteams/config/crd
-                  cp -a /opt/agentteams-src/agentteams-controller/config/crd/. /opt/agentteams/config/crd/
+                mkdir -p /opt/agentteams/config/crd
+                cp -a /opt/agentteams-src/agentteams-controller/config/crd/. /opt/agentteams/config/crd/
             - run: install the builtin agent trees (worker-agent, worker runtimes, skills)
               command: |
-                  mkdir -p /opt/agentteams/agent
-                  cp -a /opt/agentteams-src/manager/agent/worker-agent /opt/agentteams/agent/worker-agent
-                  cp -a /opt/agentteams-src/manager/agent/copaw-worker-agent /opt/agentteams/agent/copaw-worker-agent
-                  cp -a /opt/agentteams-src/manager/agent/hermes-worker-agent /opt/agentteams/agent/hermes-worker-agent
-                  cp -a /opt/agentteams-src/manager/agent/team-leader-agent /opt/agentteams/agent/team-leader-agent
-                  cp -a /opt/agentteams-src/manager/agent/skills /opt/agentteams/agent/skills
-                  rm -rf /opt/agentteams-src
+                mkdir -p /opt/agentteams/agent
+                cp -a /opt/agentteams-src/manager/agent/worker-agent /opt/agentteams/agent/worker-agent
+                cp -a /opt/agentteams-src/manager/agent/copaw-worker-agent /opt/agentteams/agent/copaw-worker-agent
+                cp -a /opt/agentteams-src/manager/agent/hermes-worker-agent /opt/agentteams/agent/hermes-worker-agent
+                cp -a /opt/agentteams-src/manager/agent/team-leader-agent /opt/agentteams/agent/team-leader-agent
+                cp -a /opt/agentteams-src/manager/agent/skills /opt/agentteams/agent/skills
+                rm -rf /opt/agentteams-src
             - run: write the tmpfiles.d entry that recreates /run/agentteams uid-1000-owned at boot
               write: /usr/lib/tmpfiles.d/agentteams.conf
               mode: "0644"
               content: |
-                  d /run/agentteams 0755 1000 1000 -
+                d /run/agentteams 0755 1000 1000 -
             - run: pre-create the rootless runtime directories (admin CLI token + podman socket)
               command: |
-                  mkdir -p /run/agentteams
-                  chown 1000:1000 /run/agentteams
-                  mkdir -p /run/user/1000/podman
-                  chown 1000:1000 /run/user/1000/podman
+                mkdir -p /run/agentteams
+                chown 1000:1000 /run/agentteams
+                mkdir -p /run/user/1000/podman
+                chown 1000:1000 /run/user/1000/podman
             - run: "create the controller volume directory under the image user's home (venue-agnostic: ${HOME} resolves to the container home on a pod, the guest home on a VM)"
               mkdir: "${HOME}/.agentteams/controller"
               run_as: "${USER}"
             - run: "enable the rootless user session for uid 1000 (subuid/subgid + linger) so the controller's podman socket and spawned containers run unprivileged (machine venue only — the pod venue bind-mounts the host socket instead, so the systemd gate makes this a no-op there)"
               command: |
-                  if [ -d /run/systemd/system ]; then
-                      U="$(id -un 1000)"
-                      grep -q "^${U}:" /etc/subuid || echo "${U}:100000:65536" >> /etc/subuid
-                      grep -q "^${U}:" /etc/subgid || echo "${U}:100000:65536" >> /etc/subgid
-                      loginctl enable-linger "${U}"
-                      for i in $(seq 1 30); do
-                          [ -d "/run/user/1000" ] && break
-                          sleep 1
-                      done
-                  fi
+                if [ -d /run/systemd/system ]; then
+                    U="$(id -un 1000)"
+                    grep -q "^${U}:" /etc/subuid || echo "${U}:100000:65536" >> /etc/subuid
+                    grep -q "^${U}:" /etc/subgid || echo "${U}:100000:65536" >> /etc/subgid
+                    loginctl enable-linger "${U}"
+                    for i in $(seq 1 30); do
+                        [ -d "/run/user/1000" ] && break
+                        sleep 1
+                    done
+                fi
             - run: "create the charly podman network the controller spawns Manager/Worker containers onto (machine venue only — the pod venue's host socket already has the charly network, so the systemd gate makes this a no-op there)"
               run_as: "1000"
               command: |
-                  if [ -d /run/systemd/system ]; then
-                      podman network exists charly || podman network create charly
-                  fi
+                if [ -d /run/systemd/system ]; then
+                    podman network exists charly || podman network create charly
+                fi
             - run: write the rootless controller start script
               write: /opt/agentteams-controller/start-controller.sh
               mode: "0755"
               content: |
-                  #!/bin/bash
-                  # start-controller.sh — charly-owned rootless AgentTeams controller
-                  # launcher. Resolves the shared AgentTeams credentials (admin account,
-                  # MinIO root, Matrix registration token) — env wins, else the
-                  # self-provisioned files on the respective candies' volumes
-                  # (~/.agentteams/controller, ~/.agentteams/minio, ~/.agentteams/matrix)
-                  # — then execs the controller. The controller itself handles the rest
-                  # (kube-apiserver subprocess, initializer with built-in retries,
-                  # Manager CR ensure).
-                  set -e
+                #!/bin/bash
+                # start-controller.sh — charly-owned rootless AgentTeams controller
+                # launcher. Resolves the shared AgentTeams credentials (admin account,
+                # MinIO root, Matrix registration token) — env wins, else the
+                # self-provisioned files on the respective candies' volumes
+                # (~/.agentteams/controller, ~/.agentteams/minio, ~/.agentteams/matrix)
+                # — then execs the controller. The controller itself handles the rest
+                # (kube-apiserver subprocess, initializer with built-in retries,
+                # Manager CR ensure).
+                set -e
 
-                  log() { echo "[agentteams-controller $(date '+%Y-%m-%d %H:%M:%S')] $1"; }
+                log() { echo "[agentteams-controller $(date '+%Y-%m-%d %H:%M:%S')] $1"; }
 
-                  # --- Admin account: controller REST + Matrix admin + Higress console ---
-                  mkdir -p "${HOME}/.agentteams/controller"
-                  ADMIN_USER="${AGENTTEAMS_ADMIN_USER:-admin}"
-                  ADMIN_PASSWORD="${AGENTTEAMS_ADMIN_PASSWORD:-}"
-                  if [ -z "${ADMIN_PASSWORD}" ]; then
-                      if [ -f "${HOME}/.agentteams/controller/.admin-password" ]; then
-                          ADMIN_PASSWORD="$(cat "${HOME}/.agentteams/controller/.admin-password")"
-                      else
-                          ADMIN_PASSWORD="$(head -c 16 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 16)"
-                          echo "${ADMIN_PASSWORD}" > "${HOME}/.agentteams/controller/.admin-password"
-                      fi
-                  fi
-                  export AGENTTEAMS_ADMIN_USER="${ADMIN_USER}"
-                  export AGENTTEAMS_ADMIN_PASSWORD="${ADMIN_PASSWORD}"
+                # --- Admin account: controller REST + Matrix admin + Higress console ---
+                mkdir -p "${HOME}/.agentteams/controller"
+                ADMIN_USER="${AGENTTEAMS_ADMIN_USER:-admin}"
+                ADMIN_PASSWORD="${AGENTTEAMS_ADMIN_PASSWORD:-}"
+                if [ -z "${ADMIN_PASSWORD}" ]; then
+                    if [ -f "${HOME}/.agentteams/controller/.admin-password" ]; then
+                        ADMIN_PASSWORD="$(cat "${HOME}/.agentteams/controller/.admin-password")"
+                    else
+                        ADMIN_PASSWORD="$(head -c 16 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 16)"
+                        echo "${ADMIN_PASSWORD}" > "${HOME}/.agentteams/controller/.admin-password"
+                    fi
+                fi
+                export AGENTTEAMS_ADMIN_USER="${ADMIN_USER}"
+                export AGENTTEAMS_ADMIN_PASSWORD="${ADMIN_PASSWORD}"
 
-                  # --- MinIO (OSS) credentials — shared with the agentteams-minio candy ---
-                  # Precedence: AGENTTEAMS_MINIO_PASSWORD env wins, else the shared
-                  # self-provisioned ~/.agentteams/minio/.root-password file (what the
-                  # MinIO server actually runs with), else the admin password fallback.
-                  # The admin fallback MUST come last: AGENTTEAMS_ADMIN_PASSWORD is
-                  # exported above (always non-empty once self-provisioned), so naming
-                  # it as the :- default here would shadow the MinIO file and the
-                  # controller's OSS client would sign with the wrong root password.
-                  MINIO_USER="${AGENTTEAMS_MINIO_USER:-${AGENTTEAMS_ADMIN_USER:-admin}}"
-                  MINIO_PASSWORD="${AGENTTEAMS_MINIO_PASSWORD:-}"
-                  if [ -z "${MINIO_PASSWORD}" ] && [ -f "${HOME}/.agentteams/minio/.root-password" ]; then
-                      MINIO_PASSWORD="$(cat "${HOME}/.agentteams/minio/.root-password")"
-                  fi
-                  if [ -z "${MINIO_PASSWORD}" ]; then
-                      MINIO_PASSWORD="${AGENTTEAMS_ADMIN_PASSWORD:-}"
-                  fi
-                  export AGENTTEAMS_MINIO_USER="${MINIO_USER}"
-                  export AGENTTEAMS_MINIO_PASSWORD="${MINIO_PASSWORD}"
+                # --- MinIO (OSS) credentials — shared with the agentteams-minio candy ---
+                # Precedence: AGENTTEAMS_MINIO_PASSWORD env wins, else the shared
+                # self-provisioned ~/.agentteams/minio/.root-password file (what the
+                # MinIO server actually runs with), else the admin password fallback.
+                # The admin fallback MUST come last: AGENTTEAMS_ADMIN_PASSWORD is
+                # exported above (always non-empty once self-provisioned), so naming
+                # it as the :- default here would shadow the MinIO file and the
+                # controller's OSS client would sign with the wrong root password.
+                MINIO_USER="${AGENTTEAMS_MINIO_USER:-${AGENTTEAMS_ADMIN_USER:-admin}}"
+                MINIO_PASSWORD="${AGENTTEAMS_MINIO_PASSWORD:-}"
+                if [ -z "${MINIO_PASSWORD}" ] && [ -f "${HOME}/.agentteams/minio/.root-password" ]; then
+                    MINIO_PASSWORD="$(cat "${HOME}/.agentteams/minio/.root-password")"
+                fi
+                if [ -z "${MINIO_PASSWORD}" ]; then
+                    MINIO_PASSWORD="${AGENTTEAMS_ADMIN_PASSWORD:-}"
+                fi
+                export AGENTTEAMS_MINIO_USER="${MINIO_USER}"
+                export AGENTTEAMS_MINIO_PASSWORD="${MINIO_PASSWORD}"
 
-                  # --- Matrix registration token — shared with the agentteams-matrix candy ---
-                  REGISTRATION_TOKEN="${AGENTTEAMS_REGISTRATION_TOKEN:-}"
-                  if [ -z "${REGISTRATION_TOKEN}" ] && [ -f "${HOME}/.agentteams/matrix/.registration-token" ]; then
-                      REGISTRATION_TOKEN="$(cat "${HOME}/.agentteams/matrix/.registration-token")"
-                  fi
-                  export AGENTTEAMS_REGISTRATION_TOKEN="${REGISTRATION_TOKEN}"
+                # --- Matrix registration token — shared with the agentteams-matrix candy ---
+                REGISTRATION_TOKEN="${AGENTTEAMS_REGISTRATION_TOKEN:-}"
+                if [ -z "${REGISTRATION_TOKEN}" ] && [ -f "${HOME}/.agentteams/matrix/.registration-token" ]; then
+                    REGISTRATION_TOKEN="$(cat "${HOME}/.agentteams/matrix/.registration-token")"
+                fi
+                export AGENTTEAMS_REGISTRATION_TOKEN="${REGISTRATION_TOKEN}"
 
-                  # --- Runtime dir the controller mints its admin CLI token into ---
-                  # (hardcoded /var/run/agentteams/cli-token; on Arch /var/run is a
-                  # symlink to /run, which the candy pre-created uid-1000-writable.)
-                  mkdir -p /run/agentteams
+                # --- Runtime dir the controller mints its admin CLI token into ---
+                # (hardcoded /var/run/agentteams/cli-token; on Arch /var/run is a
+                # symlink to /run, which the candy pre-created uid-1000-writable.)
+                mkdir -p /run/agentteams
 
-                  # --- Venue-agnostic defaults for the deploy-overridable vars ---
-                  # The env_accept vars are NOT on the service env map (supervisord
-                  # environment= would override the pod's `charly config -e` overrides),
-                  # so the start script supplies :- defaults: the pod's baked container
-                  # env (top-level env) wins there, the VM's systemd unit has none of
-                  # them, and the :- default fires. The manager/worker image refs are
-                  # the local tags the agentteams-manager/worker boxes build to.
-                  export AGENTTEAMS_DEFAULT_MODEL="${AGENTTEAMS_DEFAULT_MODEL:-gpt-5-mini}"
-                  export AGENTTEAMS_MANAGER_RUNTIME="${AGENTTEAMS_MANAGER_RUNTIME:-openclaw}"
-                  export AGENTTEAMS_DEFAULT_WORKER_RUNTIME="${AGENTTEAMS_DEFAULT_WORKER_RUNTIME:-openclaw}"
-                  export AGENTTEAMS_MATRIX_APPSERVICE_ENABLED="${AGENTTEAMS_MATRIX_APPSERVICE_ENABLED:-0}"
-                  export AGENTTEAMS_MANAGER_IMAGE="${AGENTTEAMS_MANAGER_IMAGE:-ghcr.io/opencharly/agentteams-manager:manager}"
-                  export AGENTTEAMS_WORKER_IMAGE="${AGENTTEAMS_WORKER_IMAGE:-ghcr.io/opencharly/agentteams-worker:worker}"
-                  # The Matrix server name the controller registers worker/human accounts
-                  # against. MUST match the homeserver's own CONDUWUIT_SERVER_NAME —
-                  # agentteams-matrix and agentteams-element read this same var, so an
-                  # override moves all three together. Deliberately NOT on the service env
-                  # map (supervisord environment= would override the pod's `charly config
-                  # -e` overrides — the design rule stated above); this export supplies the
-                  # :- default, so a deploy-level value wins, which is what
-                  # agentteams-matrix's docs have always promised. Without it, setting the
-                  # var moved the homeserver's server_name while the controller kept
-                  # registering against the old one and every manager/worker hit
-                  # phase=Failed (caught by the check-agentteams-pod bed).
-                  export AGENTTEAMS_MATRIX_DOMAIN="${AGENTTEAMS_MATRIX_DOMAIN:-matrix-local.agentteams.io:8080}"
+                # --- Venue-agnostic defaults for the deploy-overridable vars ---
+                # The env_accept vars are NOT on the service env map (supervisord
+                # environment= would override the pod's `charly config -e` overrides),
+                # so the start script supplies :- defaults: the pod's baked container
+                # env (top-level env) wins there, the VM's systemd unit has none of
+                # them, and the :- default fires. The manager/worker image refs are
+                # the local tags the agentteams-manager/worker boxes build to.
+                export AGENTTEAMS_DEFAULT_MODEL="${AGENTTEAMS_DEFAULT_MODEL:-gpt-5-mini}"
+                export AGENTTEAMS_MANAGER_RUNTIME="${AGENTTEAMS_MANAGER_RUNTIME:-openclaw}"
+                export AGENTTEAMS_DEFAULT_WORKER_RUNTIME="${AGENTTEAMS_DEFAULT_WORKER_RUNTIME:-openclaw}"
+                export AGENTTEAMS_MATRIX_APPSERVICE_ENABLED="${AGENTTEAMS_MATRIX_APPSERVICE_ENABLED:-0}"
+                export AGENTTEAMS_MANAGER_IMAGE="${AGENTTEAMS_MANAGER_IMAGE:-ghcr.io/opencharly/agentteams-manager:manager}"
+                export AGENTTEAMS_WORKER_IMAGE="${AGENTTEAMS_WORKER_IMAGE:-ghcr.io/opencharly/agentteams-worker:worker}"
+                # The Matrix server name the controller registers worker/human accounts
+                # against. MUST match the homeserver's own CONDUWUIT_SERVER_NAME —
+                # agentteams-matrix and agentteams-element read this same var, so an
+                # override moves all three together. Deliberately NOT on the service env
+                # map (supervisord environment= would override the pod's `charly config
+                # -e` overrides — the design rule stated above); this export supplies the
+                # :- default, so a deploy-level value wins, which is what
+                # agentteams-matrix's docs have always promised. Without it, setting the
+                # var moved the homeserver's server_name while the controller kept
+                # registering against the old one and every manager/worker hit
+                # phase=Failed (caught by the check-agentteams-pod bed).
+                export AGENTTEAMS_MATRIX_DOMAIN="${AGENTTEAMS_MATRIX_DOMAIN:-matrix-local.agentteams.io:8080}"
 
-                  # --- Config + agent-fs dirs, derived from $HOME (venue-agnostic) ---
-                  # /home/user on the pod, /home/arch on the VM — never hardcode the
-                  # home path. The mc-mirror candy mirrors the same root.
-                  HOME_DIR="${HOME:-/home/user}"
-                  export AGENTTEAMS_CONFIG_DIR="${AGENTTEAMS_CONFIG_DIR:-${HOME_DIR}/agentteams-fs/agentteams-config}"
-                  export AGENTTEAMS_AGENT_FS_DIR="${AGENTTEAMS_AGENT_FS_DIR:-${HOME_DIR}/agentteams-fs/agents}"
-                  # Worker credentials the controller mints for spawned agents live
-                  # under the controller's own volume (service env can't expand
-                  # ${HOME}, so this resolves at runtime in the start script).
-                  export AGENTTEAMS_CREDS_DIR="${AGENTTEAMS_CREDS_DIR:-${HOME_DIR}/.agentteams/controller/worker-creds}"
-                  # The controller's kine SQLite store, apiserver certs, and admin
-                  # token (upstream default /data/agentteams-controller — not
-                  # writable by uid 1000) live under the controller's own volume.
-                  export AGENTTEAMS_DATA_DIR="${AGENTTEAMS_DATA_DIR:-${HOME_DIR}/.agentteams/controller/data}"
+                # --- Config + agent-fs dirs, derived from $HOME (venue-agnostic) ---
+                # /home/user on the pod, /home/arch on the VM — never hardcode the
+                # home path. The mc-mirror candy mirrors the same root.
+                HOME_DIR="${HOME:-/home/user}"
+                export AGENTTEAMS_CONFIG_DIR="${AGENTTEAMS_CONFIG_DIR:-${HOME_DIR}/agentteams-fs/agentteams-config}"
+                export AGENTTEAMS_AGENT_FS_DIR="${AGENTTEAMS_AGENT_FS_DIR:-${HOME_DIR}/agentteams-fs/agents}"
+                # Worker credentials the controller mints for spawned agents live
+                # under the controller's own volume (service env can't expand
+                # ${HOME}, so this resolves at runtime in the start script).
+                export AGENTTEAMS_CREDS_DIR="${AGENTTEAMS_CREDS_DIR:-${HOME_DIR}/.agentteams/controller/worker-creds}"
+                # The controller's kine SQLite store, apiserver certs, and admin
+                # token (upstream default /data/agentteams-controller — not
+                # writable by uid 1000) live under the controller's own volume.
+                export AGENTTEAMS_DATA_DIR="${AGENTTEAMS_DATA_DIR:-${HOME_DIR}/.agentteams/controller/data}"
 
-                  # --- Controller URL for child agents ---
-                  # In embedded mode the controller rewrites the child-facing
-                  # MatrixURL/FSEndpoint/AIGatewayURL to the host extracted from
-                  # AGENTTEAMS_CONTROLLER_URL (config.go). Children reach the
-                  # controller — and every in-container service — by the container's
-                  # DNS name on the charly network (charly runs containers with the
-                  # container name as hostname: --hostname <name> direct-run and
-                  # quadlet Hostname=<name>), never the loopback default, which
-                  # children cannot resolve. $HOSTNAME is bash's builtin hostname
-                  # var — no hostname(1) binary needed, and the quadlet Hostname=
-                  # makes it the charly-network-resolvable name, not a hex ID. On a
-                  # MACHINE venue (VM) the controller is a systemd service on the
-                  # guest, not a container on the charly network — spawned agents
-                  # reach it at the charly-network gateway (host.docker.internal,
-                  # the host-gateway ExtraHost every spawned container gets). An
-                  # explicit non-loopback override is honored.
-                  case "${AGENTTEAMS_CONTROLLER_URL:-}" in
-                      ""|*127.0.0.1*|*localhost*)
-                          if [ -d /run/systemd/system ]; then
-                              export AGENTTEAMS_CONTROLLER_URL="http://host.docker.internal:8090"
-                          else
-                              export AGENTTEAMS_CONTROLLER_URL="http://${HOSTNAME}:8090"
-                          fi
-                          ;;
-                  esac
+                # --- Controller URL for child agents ---
+                # In embedded mode the controller rewrites the child-facing
+                # MatrixURL/FSEndpoint/AIGatewayURL to the host extracted from
+                # AGENTTEAMS_CONTROLLER_URL (config.go). Children reach the
+                # controller — and every in-container service — by the container's
+                # DNS name on the charly network (charly runs containers with the
+                # container name as hostname: --hostname <name> direct-run and
+                # quadlet Hostname=<name>), never the loopback default, which
+                # children cannot resolve. $HOSTNAME is bash's builtin hostname
+                # var — no hostname(1) binary needed, and the quadlet Hostname=
+                # makes it the charly-network-resolvable name, not a hex ID. On a
+                # MACHINE venue (VM) the controller is a systemd service on the
+                # guest, not a container on the charly network — spawned agents
+                # reach it at the charly-network gateway (host.docker.internal,
+                # the host-gateway ExtraHost every spawned container gets). An
+                # explicit non-loopback override is honored.
+                case "${AGENTTEAMS_CONTROLLER_URL:-}" in
+                    ""|*127.0.0.1*|*localhost*)
+                        if [ -d /run/systemd/system ]; then
+                            export AGENTTEAMS_CONTROLLER_URL="http://host.docker.internal:8090"
+                        else
+                            export AGENTTEAMS_CONTROLLER_URL="http://${HOSTNAME}:8090"
+                        fi
+                        ;;
+                esac
 
-                  # --- Network for spawned manager/worker containers ---
-                  # Same venue split as the controller URL. On a container venue
-                  # spawned agents join the charly network so they resolve the
-                  # controller's DNS name; on a machine venue (VM) the guest kernel
-                  # may lack bridge support for rootless netavark (the Arch cloud
-                  # image ships no kernel modules), so they use the default pasta
-                  # network and reach the controller via the host-gateway
-                  # ExtraHost. An explicit non-empty override is honored.
-                  case "${AGENTTEAMS_DOCKER_NETWORK:-}" in
-                      "")
-                          if [ -d /run/systemd/system ]; then
-                              export AGENTTEAMS_DOCKER_NETWORK="pasta"
-                          else
-                              export AGENTTEAMS_DOCKER_NETWORK="charly"
-                          fi
-                          ;;
-                  esac
+                # --- Network for spawned manager/worker containers ---
+                # Same venue split as the controller URL. On a container venue
+                # spawned agents join the charly network so they resolve the
+                # controller's DNS name; on a machine venue (VM) the guest kernel
+                # may lack bridge support for rootless netavark (the Arch cloud
+                # image ships no kernel modules), so they use the default pasta
+                # network and reach the controller via the host-gateway
+                # ExtraHost. An explicit non-empty override is honored.
+                case "${AGENTTEAMS_DOCKER_NETWORK:-}" in
+                    "")
+                        if [ -d /run/systemd/system ]; then
+                            export AGENTTEAMS_DOCKER_NETWORK="pasta"
+                        else
+                            export AGENTTEAMS_DOCKER_NETWORK="charly"
+                        fi
+                        ;;
+                esac
 
-                  exec agentteams-controller
+                exec agentteams-controller
             - check: the controller binary is built
               file:
                 file: /usr/local/bin/agentteams-controller
@@ -376,21 +374,21 @@ agentteams-controller:
               context:
                 - runtime
               command: |
-                  # command: checks run via podman exec INSIDE the container, so the
-                  # controller is on its in-container port 8090 (not the host-mapped
-                  # port). The shell var is deliberately lowercase — the check runner
-                  # expands UPPERCASE-variable refs as runtime variables and SKIPs on
-                  # an unresolved one, so a shell var must not look like one.
-                  token="$(cat /var/run/agentteams/cli-token 2>/dev/null)"
-                  test -n "${token}"
-                  curl -fsS -o /dev/null -H "Authorization: Bearer ${token}" \
-                      "http://127.0.0.1:8090/api/v1/status"
+                # command: checks run via podman exec INSIDE the container, so the
+                # controller is on its in-container port 8090 (not the host-mapped
+                # port). The shell var is deliberately lowercase — the check runner
+                # expands UPPERCASE-variable refs as runtime variables and SKIPs on
+                # an unresolved one, so a shell var must not look like one.
+                token="$(cat /var/run/agentteams/cli-token 2>/dev/null)"
+                test -n "${token}"
+                curl -fsS -o /dev/null -H "Authorization: Bearer ${token}" \
+                    "http://127.0.0.1:8090/api/v1/status"
             - check: the controller REST API lists managers with the admin token
               timeout: 30s
               context:
                 - runtime
               command: |
-                  token="$(cat /var/run/agentteams/cli-token 2>/dev/null)"
-                  test -n "${token}"
-                  curl -fsS -o /dev/null -H "Authorization: Bearer ${token}" \
-                      "http://127.0.0.1:8090/api/v1/managers"
+                token="$(cat /var/run/agentteams/cli-token 2>/dev/null)"
+                test -n "${token}"
+                curl -fsS -o /dev/null -H "Authorization: Bearer ${token}" \
+                    "http://127.0.0.1:8090/api/v1/managers"
