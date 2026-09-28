@@ -1,7 +1,5 @@
-version: 2026.232.0520
 agentteams-controller:
     candy:
-        version: 2026.223.1500
         description: |-
             The AgentTeams controller — a Go binary (with the `agt` REST client)
             that embeds a kine-backed kube-apiserver and reconciles Manager/Worker/
