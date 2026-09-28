@@ -56,8 +56,8 @@ substrates.
 ## Layout
 
 - `charly.yml` — the `agentteams-controller:` candy entity: description, the
-  `golang` require, the Arch package list, `env_accept`, the volume, the port,
-  the `agentteams-controller` service, and the build/runtime `plan:`.
+  `layer-golang` require, the Arch package list, `env_accept`, the volume, the
+  port, the `agentteams-controller` service, and the build/runtime `plan:`.
 - `.github/workflows/tag-on-merge.yml` — CalVer tag + `CHANGELOG/` on merge.
 - `README.md` — this user overview.
 
